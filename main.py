@@ -16,10 +16,12 @@ class MainWindow(QMainWindow):
         app_dir = os.path.dirname(os.path.abspath(__file__))   # Application directory 
         window_icon_path = os.path.join(app_dir, "icon.ico")
 
+        self.keys = {"shift": False}
+
         # Creating application interface 
 
-        self.sandbox = Sandbox(self)
-        self.toolbar = Toolbar(self, window_height * 0.145)
+        self.sandbox = Sandbox(self, round(window_height * 0.011) / 10)
+        self.toolbar = Toolbar(self.sandbox, window_height * 0.145)
 
         # Window setting 
 
@@ -30,6 +32,24 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("background-color: #f0f0f0;")
 
         self.show()
+
+    def keyPressEvent(self, event):
+        if event.nativeVirtualKey() == 16:
+            self.keys["shift"] = True
+
+        elif event.nativeVirtualKey() == 46:
+            sandbox = self.sandbox
+            if self.keys["shift"]:
+                sandbox.clear()
+            else:
+                for element in sandbox.elements:
+                    if element.hover:
+                        sandbox.remove_element(element)
+                        break
+
+    def keyReleaseEvent(self, event):
+        if event.nativeVirtualKey() == 16:
+            self.keys["shift"] = False
 
     def resizeEvent(self, event):
         self.sandbox.resize(self.width(), self.height())
