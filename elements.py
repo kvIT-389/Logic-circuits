@@ -53,17 +53,6 @@ class LogicElement(QWidget):
     def draw_outline(self, painter, pen):
         painter.strokePath(self.outline, pen)
 
-    def scale(self, q):
-        self.scale_value *= q
-
-        width = self.default_width * self.scale_value
-        height = self.default_height * self.scale_value
-
-        self.resize(width, height)
-
-        for contact in self.contacts:
-            contact.scale(q)
-
     @classmethod
     def draw_in_panel(cls, painter, panel_width, panel_height):
         x_offset = (panel_width - cls.default_width) / 2
@@ -76,19 +65,65 @@ class LogicElement(QWidget):
 
         painter.drawPath(cls.outline)
 
+    def scale(self, q):
+        self.scale_value *= q
+
+        width = self.default_width * self.scale_value
+        height = self.default_height * self.scale_value
+
+        self.resize(width, height)
+
+        for contact in self.contacts:
+            contact.scale(q)
+
+    def connect_to_others(self):
+        self.upd()
+        for element in self.parentWidget().elements:
+            if element is not self:
+                for contact_0 in self.contacts:
+                    for contact_1 in element.contacts:
+                        contact_0.try_to_connect_to(contact_1)
+
+    def upd(self):
+        for contact in self.contacts:
+            contact.receive_signals()
+
+        self.update_condition()
+
+        for contact in self.contacts:
+            contact.transmit_signal()
+
+        self.update()
+
+    def clear_links(self):
+        for contact in self.contacts:
+            contact.clear_links()
+
+            contact.condition = False
+
+        if isinstance(self, (Switch, Lamp)):
+            self.update_condition()
+
 class DraggableElement(LogicElement):
     def __init__(self, parent):
         LogicElement.__init__(self, parent)
 
         self.press_pos = None
-        self.hover = True   # When element is created it already hovered 
+        self.hover = True   # When element is created it already hovered. 
 
         self.setCursor(Qt.PointingHandCursor)
 
     def mousePressEvent(self, event):
-        # Only left button press 
+        # Left button press 
         if event.button() == 1:
             self.press_pos = event.pos()
+            self.clear_links()
+            self.update()
+        # Right button press 
+        elif event.button() == 2:
+            if isinstance(self, Switch):
+                self.condition = not self.condition
+                self.upd()
 
     def mouseMoveEvent(self, event):
         if self.press_pos:
@@ -98,6 +133,8 @@ class DraggableElement(LogicElement):
         if self.press_pos:
             self.press_pos = None
             self.raise_()
+
+            self.connect_to_others()
 
     def enterEvent(self, event):
         self.hover = True
@@ -110,14 +147,37 @@ class DraggableElement(LogicElement):
 class And(DraggableElement):
     default_width, default_height, outline, contacts_data = Graphics.And()
 
+    def update_condition(self):
+        i0 = self.contacts[0].condition
+        i1 = self.contacts[1].condition
+
+        self.contacts[2].condition = i0 and i1
+
 class Or(DraggableElement):
     default_width, default_height, outline, contacts_data = Graphics.Or()
+
+    def update_condition(self):
+        i0 = self.contacts[0].condition
+        i1 = self.contacts[1].condition
+
+        self.contacts[2].condition = i0 or i1
 
 class Xor(DraggableElement):
     default_width, default_height, outline, contacts_data = Graphics.Xor()
 
+    def update_condition(self):
+        i0 = self.contacts[0].condition
+        i1 = self.contacts[1].condition
+
+        self.contacts[2].condition = (i0 or i1) and not (i0 and i1)
+
 class Not(DraggableElement):
     default_width, default_height, outline, contacts_data = Graphics.Not()
+
+    def update_condition(self):
+        i0 = self.contacts[0].condition
+
+        self.contacts[1].condition = not i0
 
 class Switch(DraggableElement):
     default_width, default_height, base, toggle, toggle_offset, contacts_data = Graphics.Switch()
@@ -155,6 +215,9 @@ class Switch(DraggableElement):
         painter.setBrush(QBrush(Palette.switch_toggle.fill[False]))
         painter.drawPath(cls.toggle)
 
+    def update_condition(self):
+        self.contacts[0].condition = self.condition
+
 class Lamp(DraggableElement):
     default_width, default_height, base, bulb, contacts_data, contact_height = Graphics.Lamp()
     condition = False   # False - inactive; True - active 
@@ -180,3 +243,6 @@ class Lamp(DraggableElement):
 
         painter.drawPath(cls.base)
         painter.drawPath(cls.bulb)
+
+    def update_condition(self):
+        self.condition = self.contacts[0].condition

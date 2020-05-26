@@ -28,8 +28,10 @@ class Sandbox(QWidget):
         return new_element
 
     def remove_element(self, element):
-        self.elements.remove(element)
+        element.clear_links()
         element.close()
+
+        self.elements.remove(element)
 
     def clear(self):
         for element in self.elements:
@@ -94,6 +96,7 @@ class ElementPanel(QWidget):
 
     def mouseReleaseEvent(self, event):
         if self.created_element:
+            self.created_element.connect_to_others()
             self.created_element = None
 
     def paintEvent(self, event):

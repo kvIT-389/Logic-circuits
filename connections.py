@@ -1,3 +1,5 @@
+# Contains some classes implementing elements' logic. 
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainterPath, QPen, QBrush
 
@@ -20,10 +22,10 @@ class Contact:
 
         self._type = type_   # "i" - input; "o" - output 
         self._links = []
-        self._condition = False   # False - inactive; True - active 
+        self.condition = False   # False - inactive; True - active 
 
     def draw(self, painter):
-        color = Palette.element.contact[self._condition]
+        color = Palette.element.contact[self.condition]
 
         pen = QPen(color, 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         brush = QBrush(color)
@@ -48,3 +50,59 @@ class Contact:
         self._r *= q
         self._cx *= q
         self._cy *= q
+
+    def try_to_connect_to(self, contact):
+        dx = (contact._element.x() + round(contact._cx)) - (self._element.x() + round(self._cx))
+        dy = (contact._element.y() + round(contact._cy)) - (self._element.y() + round(self._cy))
+
+        if dx ** 2 + dy ** 2 <= (self._r + contact._r) ** 2:
+            self._element.move(self._element.x() + dx, 
+                               self._element.y() + dy)
+
+            self._connect_to(contact)
+
+    def _connect_to(self, contact):
+        self_link = self._add_link(contact)
+        contact_link = contact._add_link(self)
+
+        self_link.trackback = contact_link
+        contact_link.trackback = self_link
+
+        contact.element.upd()
+
+    def _add_link(self, link_contact):
+        new_link = Link(link_contact)
+        self._links.append(new_link)
+
+        return new_link
+
+    def receive_signals(self):
+        if self._type == "i":
+            for link in self._links:
+                if link.contact._type == "o" and link.contact.condition:
+                    self.condition = True
+                    break
+            else:
+                self.condition = False
+
+    def transmit_signal(self):
+        if self._type == "o":
+            for link in self._links:
+                link.contact.receive_signals()
+                link.element.upd()
+
+    def clear_links(self):
+        for link in self._links:
+            link.contact._links.remove(link.trackback)
+            link.element.upd()
+        self._links.clear()
+
+    @property
+    def element(self):
+        return self._element
+
+class Link:
+    def __init__(self, contact):
+        self.contact = contact
+        self.element = contact.element
+        self.trackback = None
