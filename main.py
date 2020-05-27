@@ -46,6 +46,8 @@ class MainWindow(QMainWindow):
                     if element.hover:
                         sandbox.remove_element(element)
                         break
+                else:
+                    sandbox.remove_elements_group(True)
 
     def keyReleaseEvent(self, event):
         if event.nativeVirtualKey() == 16:

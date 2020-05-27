@@ -5,8 +5,12 @@ from PyQt5.QtGui import QColor
 class Palette:
     panel_border = QColor(62, 63, 65)
 
+    class group:
+        border = QColor(128, 132, 129)
+        fill = QColor(200, 200, 200, 20)
+
     class element:
-        border = QColor(159, 167, 158)
+        border = QColor(189, 187, 188)
         outline = QColor(73, 74, 76)
 
         contact = {
