@@ -2,9 +2,9 @@
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtGui import QCursor, QPainter, QPen
+from PyQt5.QtGui import QPainter, QPen
 
-from elements import And, Or, Xor, Not, Switch, Lamp
+from elements import And, Or, Xor, Not, Switch, Lamp, ElementsGroup
 from palette import Palette
 
 class Sandbox(QWidget):
@@ -14,7 +14,51 @@ class Sandbox(QWidget):
         self.elements = []   # Contains all elements of circuit 
         self.circuit_scale = initial_scale
 
+        self.press_pos = None
+        self.elements_group = None
+
         self.show()
+
+    def mousePressEvent(self, event):
+        # Left button press 
+        if event.button() == 1 and self.elements:
+            self.remove_elements_group()
+            self.setCursor(Qt.SizeAllCursor)
+
+            self.press_pos = event.pos()
+
+        # Right button press 
+        elif event.button() == 2:
+            self.create_elements_group(event.pos())
+
+    def mouseMoveEvent(self, event):
+        if self.press_pos:
+            for element in self.elements:
+                element.move(
+                    element.pos() + (event.pos() - self.press_pos)
+                )
+            self.press_pos = event.pos()
+
+        elif self.elements_group:
+            self.elements_group.resize_(event.x(), event.y())
+
+    def mouseReleaseEvent(self, event):
+        if self.elements_group:
+            # Adding elements in group 
+            for element in self.elements:
+                if self.elements_group.geometry().contains(element.geometry()):
+                    self.elements_group.elements.append(element)
+
+            # Checking group validity: 
+            # it should contain at least 2 elements. 
+
+            if len(self.elements_group.elements) < 2:
+                self.remove_elements_group()
+            else:
+                self.elements_group.align_borders()
+
+        self.press_pos = None
+        self.setCursor(Qt.ArrowCursor)
 
     def add_element(self, element_constructor, window_x, window_y):
         new_element = element_constructor(self)
@@ -33,10 +77,30 @@ class Sandbox(QWidget):
 
         self.elements.remove(element)
 
+    def create_elements_group(self, window_pos):
+        self.remove_elements_group()
+        self.elements_group = ElementsGroup(self, window_pos)
+
+        self.setCursor(Qt.CrossCursor)
+
+    def remove_elements_group(self, remove_elements=False):
+        if self.elements_group:
+            if remove_elements:
+                for element in self.elements_group.elements:
+                    self.remove_element(element)
+
+            self.elements_group.close()
+            self.elements_group = None
+
     def clear(self):
         for element in self.elements:
             element.close()
         self.elements.clear()
+
+        self.remove_elements_group()
+        self.press_pos = None
+
+        self.setCursor(Qt.ArrowCursor)
 
 class Toolbar(QWidget):
     def __init__(self, parent, height):
@@ -71,7 +135,7 @@ class ElementPanel(QWidget):
         # created_element stores this element. 
         self.created_element = None
 
-        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setCursor(Qt.PointingHandCursor)
         self.show()
 
     def mousePressEvent(self, event):
@@ -84,6 +148,7 @@ class ElementPanel(QWidget):
                 self.element_constructor, 
                 window_pos.x(), window_pos.y()
             )
+            sandbox.remove_elements_group()
 
     def mouseMoveEvent(self, event):
         if self.created_element:
