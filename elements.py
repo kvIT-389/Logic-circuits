@@ -76,10 +76,10 @@ class LogicElement(QWidget):
         for contact in self.contacts:
             contact.scale(q)
 
-    def connect_to_others(self):
+    def connect_to_others(self, connected_elements=[]):
         self.upd()
         for element in self.parentWidget().elements:
-            if element is not self:
+            if element is not self and element not in connected_elements:
                 for contact_0 in self.contacts:
                     for contact_1 in element.contacts:
                         contact_0.try_to_connect_to(contact_1)
@@ -95,9 +95,12 @@ class LogicElement(QWidget):
 
         self.update()
 
-    def clear_links(self):
+    def clear_links(self, unaffected_elements=[]):
+        # unaffected_elements contains elements 
+        # which shouldn't be disconnected. 
+
         for contact in self.contacts:
-            contact.clear_links()
+            contact.clear_links(unaffected_elements)
 
             contact.condition = False
 
@@ -246,3 +249,98 @@ class Lamp(DraggableElement):
 
     def update_condition(self):
         self.condition = self.contacts[0].condition
+
+class ElementsGroup(QWidget):
+    def __init__(self, parent, initial_mouse_pos):
+        QWidget.__init__(self, parent)
+
+        self.move(initial_mouse_pos)
+        self.resize(0, 0)
+
+        self.initial_mouse_x = initial_mouse_pos.x()
+        self.initial_mouse_y = initial_mouse_pos.y()
+
+        self.elements = []
+
+        self.press_pos = None
+
+        self.setCursor(Qt.PointingHandCursor)
+        self.show()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        pen_width = round(2 * self.parentWidget().circuit_scale)
+
+        pen = QPen(
+            Palette.group.border, pen_width, 
+            Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin
+        )
+        brush = QBrush(Palette.group.fill)
+
+        painter.setPen(pen)
+        painter.setBrush(brush)
+
+        painter.drawRect(
+            pen_width, pen_width, 
+            self.width() - 2*pen_width, self.height() - 2*pen_width
+        )
+
+        painter.end()
+
+    def mousePressEvent(self, event):
+        # Only left button press 
+        if event.button() == 1:
+            self.press_pos = event.pos()
+
+            if self.elements != self.parentWidget().elements:
+                for element in self.elements:
+                    element.clear_links(self.elements)
+                    element.upd()
+
+            self.setCursor(Qt.SizeAllCursor)
+
+    def mouseMoveEvent(self, event):
+        for element in self.elements:
+            element.move(element.pos() + (event.pos() - self.press_pos))
+
+        self.move(self.pos() + (event.pos() - self.press_pos))
+
+    def mouseReleaseEvent(self, event):
+        if self.press_pos:
+            self.press_pos = None
+
+            if self.elements != self.parentWidget().elements:
+                for element in self.elements:
+                    element.connect_to_others(self.elements)
+
+            self.setCursor(Qt.ArrowCursor)
+
+    def resize_(self, mouse_x, mouse_y):
+        self.setGeometry(min(self.initial_mouse_x, mouse_x), 
+                         min(self.initial_mouse_y, mouse_y), 
+                         abs(mouse_x - self.initial_mouse_x), 
+                         abs(mouse_y - self.initial_mouse_y)
+        )
+
+    def align_borders(self):
+        left_borders = []
+        top_borders = []
+        right_borders = []
+        bottom_borders = []
+
+        for element in self.elements:
+            left_borders.append(element.x())
+            top_borders.append(element.y())
+            right_borders.append(element.x() + element.width())
+            bottom_borders.append(element.y() + element.height())
+
+        padding = round(8 * self.parentWidget().circuit_scale)
+
+        x = min(left_borders) - padding
+        y = min(top_borders) - padding
+        w = max(right_borders) - x + 2*padding
+        h = max(bottom_borders) - y + 2*padding
+
+        self.setGeometry(x, y, w, h)

@@ -91,11 +91,17 @@ class Contact:
                 link.contact.receive_signals()
                 link.element.upd()
 
-    def clear_links(self):
+    def clear_links(self, unaffected_elements):
+        remaining_links = []
+
         for link in self._links:
-            link.contact._links.remove(link.trackback)
-            link.element.upd()
-        self._links.clear()
+            if link.element in unaffected_elements:
+                remaining_links.append(link)
+            else:
+                link.contact._links.remove(link.trackback)
+                link.element.upd()
+
+        self._links = remaining_links
 
     @property
     def element(self):
