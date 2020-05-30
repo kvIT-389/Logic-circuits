@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QPen
 
-from elements import And, Or, Xor, Not, Switch, Lamp, ElementsGroup
+from elements import And, Or, Xor, Not, Switch, Lamp, Wire, ElementsGroup
 from palette import Palette
 
 class Sandbox(QWidget):
@@ -67,6 +67,9 @@ class Sandbox(QWidget):
         new_element.move(window_x - new_element.width() / 2,
                          window_y - new_element.height() / 2)
 
+        # When element is created it already hovered. 
+        new_element.hover = True
+
         self.elements.append(new_element)
 
         return new_element
@@ -76,6 +79,22 @@ class Sandbox(QWidget):
         element.close()
 
         self.elements.remove(element)
+
+    def add_wire(self, *contacts_coords):
+        new_wire = Wire(self)
+
+        new_wire.lower()
+        self.window().toolbar.stackUnder(new_wire)
+
+        new_wire.scale(self.circuit_scale)
+        new_wire.maximize()
+
+        new_wire.contacts[0].move_to(*contacts_coords[:2])
+        new_wire.contacts[1].move_to(*contacts_coords[2:])
+
+        self.elements.append(new_wire)
+
+        return new_wire
 
     def create_elements_group(self, window_pos):
         self.remove_elements_group()

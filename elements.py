@@ -4,21 +4,28 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QPen, QBrush
 
-from connections import Contact
+from connections import Contact, WireContact, WireSegment
 
 from graphics import Graphics
 from palette import Palette
 
 class LogicElement(QWidget):
+    default_width = 0
+    default_height = 0
+
     def __init__(self, parent):
         QWidget.__init__(self, parent)
 
-        self.contacts = []
-        for data in self.contacts_data:
-            self.contacts.append(Contact(self, *data))
+        try:
+            self.contacts = []
+            for data in self.contacts_data:
+                self.contacts.append(Contact(self, *data))
+        except AttributeError:
+            pass
 
         self.scale_value = 1
-        
+        self.hover = False
+
         self.resize(self.default_width, self.default_height)
         self.show()
 
@@ -79,7 +86,7 @@ class LogicElement(QWidget):
     def connect_to_others(self, connected_elements=[]):
         self.upd()
         for element in self.parentWidget().elements:
-            if element is not self and element not in connected_elements:
+            if (element is not self) and (element not in connected_elements):
                 for contact_0 in self.contacts:
                     for contact_1 in element.contacts:
                         contact_0.try_to_connect_to(contact_1)
@@ -112,7 +119,10 @@ class DraggableElement(LogicElement):
         LogicElement.__init__(self, parent)
 
         self.press_pos = None
-        self.hover = True   # When element is created it already hovered. 
+
+        # At the time of creation of new wire (or its new segment), 
+        # created_wire stores this new (or already existing) wire. 
+        self.created_wire = None
 
         self.setCursor(Qt.PointingHandCursor)
 
@@ -120,24 +130,75 @@ class DraggableElement(LogicElement):
         # Left button press 
         if event.button() == 1:
             self.press_pos = event.pos()
+
             self.clear_links()
+            self.raise_()
+
             self.update()
+
         # Right button press 
         elif event.button() == 2:
-            if isinstance(self, Switch):
-                self.condition = not self.condition
-                self.upd()
+            # Trying to add wire ... 
+            for contact in self.contacts:
+                dx = event.x() - contact.cx
+                dy = event.y() - contact.cy
+
+                if dx*dx + dy*dy <= contact.r ** 2:
+                    # Coordinates of center of new contact. 
+                    new_cx = self.x() + event.x()
+                    new_cy = self.y() + event.y()
+
+                    # Connecting to existing wire .. 
+                    for link in contact.links:
+                        if isinstance(link.element, Wire):
+                            link.element.add_segment(link.contact, 
+                                                     new_cx, new_cy)
+                            self.created_wire = link.element
+
+                            break
+
+                    # or creating new. 
+                    else:
+                        self.created_wire = self.parentWidget().add_wire(
+                            contact.abs_cx, contact.abs_cy, new_cx, new_cy
+                        )
+
+                        for link in contact.links:
+                            self.created_wire.contacts[0].connect_to(
+                                link.contact
+                            )
+                        self.created_wire.contacts[0].connect_to(contact)
+
+                    break
+
+            # or change switch's condition. 
+            else:
+                if isinstance(self, Switch):
+                    self.condition = not self.condition
+                    self.upd()
 
     def mouseMoveEvent(self, event):
+        # Moving self .. 
         if self.press_pos:
             self.move(event.windowPos().toPoint() - self.press_pos)
+
+        # or created_wire's new contact. 
+        elif self.created_wire:
+            self.created_wire.contacts[-1].move_to(
+                self.x() + event.x(), 
+                self.y() + event.y()
+            )
+            self.created_wire.update()
 
     def mouseReleaseEvent(self, event):
         if self.press_pos:
             self.press_pos = None
-            self.raise_()
 
             self.connect_to_others()
+
+        elif self.created_wire:
+            self.created_wire.end_creating()
+            self.created_wire = None
 
     def enterEvent(self, event):
         self.hover = True
@@ -250,6 +311,99 @@ class Lamp(DraggableElement):
     def update_condition(self):
         self.condition = self.contacts[0].condition
 
+class Wire(LogicElement):
+    condition = False
+
+    def __init__(self, parent):
+        LogicElement.__init__(self, parent)
+
+        self.contacts = [
+            WireContact(self, 0, 0), 
+            WireContact(self, 0, 0)
+        ]
+        self.segments = [WireSegment(self, *self.contacts)]
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        pen = QPen(
+            Palette.element.contact[self.condition], 
+            round(6 * self.scale_value), 
+            Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin
+        )
+        painter.setPen(pen)
+
+        for wire in self.segments:
+            wire.draw(painter)
+
+        for contact in self.contacts:
+            contact.draw(painter)
+
+        painter.end()
+
+    def add_segment(self, existing_contact, new_cx, new_cy):
+        self.maximize()
+
+        new_contact = WireContact(self, 0, 0)
+        new_contact.scale(self.scale_value)
+        new_contact.move_to(new_cx, new_cy)
+
+        new_segment = WireSegment(self, existing_contact, new_contact)
+
+        self.contacts.append(new_contact)
+        self.segments.append(new_segment)
+
+    def scale(self, q):
+        self.scale_value *= q
+
+        self.maximize()
+        for contact in self.contacts:
+            contact.scale(q)
+        self.minimize()
+
+    def maximize(self):
+        for contact in self.contacts:
+            contact.move_to(contact.abs_cx, contact.abs_cy)
+
+        self.setGeometry(self.parentWidget().geometry())
+
+    def minimize(self):
+        cxs = []
+        cys = []
+
+        for contact in self.contacts:
+            cxs.append(contact.cx)
+            cys.append(contact.cy)
+
+        r = self.contacts[0].r + 3
+        # 3 is half of pen width used for drawing wire. 
+
+        x = min(cxs) - r
+        y = min(cys) - r
+        w = max(cxs) - x + r
+        h = max(cys) - y + r
+
+        self.setGeometry(x, y, w, h)
+
+        for contact in self.contacts:
+            contact.move_to(contact.cx - x, contact.cy - y)
+
+    def end_creating(self):
+        # Ends creating wire or its new segment. 
+
+        self.upd()
+
+        for element in self.parentWidget().elements:
+            if element is not self:
+                for contact in element.contacts:
+                    self.contacts[-1].try_to_connect_to(contact)
+
+        self.minimize()
+
+    def update_condition(self):
+        pass
+
 class ElementsGroup(QWidget):
     def __init__(self, parent, initial_mouse_pos):
         QWidget.__init__(self, parent)
@@ -315,7 +469,7 @@ class ElementsGroup(QWidget):
                 for element in self.elements:
                     element.connect_to_others(self.elements)
 
-            self.setCursor(Qt.ArrowCursor)
+            self.setCursor(Qt.PointingHandCursor)
 
     def resize_(self, mouse_x, mouse_y):
         self.setGeometry(min(self.initial_mouse_x, mouse_x), 
