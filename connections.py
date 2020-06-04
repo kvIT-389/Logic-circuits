@@ -9,7 +9,7 @@ class Contact:
     default_r = 10
 
     def __init__(self, element, type_, cx, cy, wire):
-        self._element = element
+        self.element = element
 
         self._cx = cx
         self._cy = cy
@@ -52,34 +52,25 @@ class Contact:
         self._cy *= q
 
     def move_to(self, new_cx, new_cy):
-        self._element.move(
-            self._element.x() + (new_cx - self.abs_cx), 
-            self._element.y() + (new_cy - self.abs_cy)
+        self.element.move(
+            self.element.x() + (new_cx - self.abs_cx), 
+            self.element.y() + (new_cy - self.abs_cy)
         )
 
-    def try_to_connect_to(self, contact):
+    def is_overlaid_on(self, contact):
         dx = contact.abs_cx - self.abs_cx
         dy = contact.abs_cy - self.abs_cy
 
-        if dx*dx + dy*dy <= (self.r + contact.r) ** 2:
-            self.move_to(contact.abs_cx, contact.abs_cy)
-
-            self.connect_to(contact)
+        return dx*dx + dy*dy <= (self.r + contact.r) ** 2
 
     def connect_to(self, contact):
-        self_link = self._add_link(contact)
-        contact_link = contact._add_link(self)
+        self.links.append(Link(contact))
+        contact.links.append(Link(self))
 
-        self_link.trackback = contact_link
-        contact_link.trackback = self_link
+        self.links[-1].trackback = contact.links[-1]
+        contact.links[-1].trackback = self.links[-1]
 
         contact.element.upd()
-
-    def _add_link(self, link_contact):
-        new_link = Link(link_contact)
-        self.links.append(new_link)
-
-        return new_link
 
     def receive_signals(self):
         if "i" in self._type:
@@ -93,8 +84,8 @@ class Contact:
     def transmit_signal(self):
         if "o" in self._type:
             for link in self.links:
-                link.contact.receive_signals()
-                link.element.upd()
+                if link.element not in self.element.update_stack:
+                    link.element.upd(updating_element=self.element)
 
     def clear_links(self, unaffected_elements):
         remaining_links = []
@@ -109,10 +100,6 @@ class Contact:
         self.links = remaining_links
 
     @property
-    def element(self):
-        return self._element
-
-    @property
     def cx(self):
         return self._cx
 
@@ -122,11 +109,11 @@ class Contact:
 
     @property
     def abs_cx(self):
-        return self._element.x() + round(self._cx)
+        return self.element.x() + round(self._cx)
 
     @property
     def abs_cy(self):
-        return self._element.y() + round(self._cy)
+        return self.element.y() + round(self._cy)
 
 class WireContact(Contact):
     def __init__(self, element, cx, cy):
@@ -150,6 +137,10 @@ class WireSegment:
     def draw(self, painter):
         painter.drawLine(
             self._contacts[0].cx, self._contacts[0].cy, 
+            self._contacts[1].cx, self._contacts[0].cy
+        )
+        painter.drawLine(
+            self._contacts[1].cx, self._contacts[0].cy, 
             self._contacts[1].cx, self._contacts[1].cy
         )
 

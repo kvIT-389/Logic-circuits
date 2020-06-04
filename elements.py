@@ -26,6 +26,8 @@ class LogicElement(QWidget):
         self.scale_value = 1
         self.hover = False
 
+        self.update_stack = []
+
         self.resize(self.default_width, self.default_height)
         self.show()
 
@@ -84,21 +86,30 @@ class LogicElement(QWidget):
             contact.scale(q)
 
     def connect_to_others(self, connected_elements=[]):
-        self.upd()
+        self.update_condition()
         for element in self.parentWidget().elements:
             if (element is not self) and (element not in connected_elements):
                 for contact_0 in self.contacts:
                     for contact_1 in element.contacts:
-                        contact_0.try_to_connect_to(contact_1)
+                        if contact_0.is_overlaid_on(contact_1):
+                            contact_0.move_to(contact_1.abs_cx, 
+                                              contact_1.abs_cy)
+                            contact_0.connect_to(contact_1)
 
-    def upd(self):
+    def upd(self, updating_element=None):
         for contact in self.contacts:
             contact.receive_signals()
 
         self.update_condition()
 
+        if updating_element:
+            self.update_stack = list(updating_element.update_stack)
+            self.update_stack.append(updating_element)
+
         for contact in self.contacts:
             contact.transmit_signal()
+
+        self.update_stack.clear()
 
         self.update()
 
@@ -392,17 +403,27 @@ class Wire(LogicElement):
     def end_creating(self):
         # Ends creating wire or its new segment. 
 
-        self.upd()
-
         for element in self.parentWidget().elements:
             if element is not self:
                 for contact in element.contacts:
-                    self.contacts[-1].try_to_connect_to(contact)
+                    if self.contacts[-1].is_overlaid_on(contact):
+                        self.contacts[-1].move_to(contact.abs_cx, 
+                                                  contact.abs_cy)
+                        self.contacts[-1].connect_to(contact)
+
 
         self.minimize()
 
     def update_condition(self):
-        pass
+        for contact in self.contacts:
+            if contact.condition:
+                self.condition = True
+                break
+        else:
+            self.condition = False
+
+        for contact in self.contacts:
+            contact.condition = self.condition
 
 class ElementsGroup(QWidget):
     def __init__(self, parent, initial_mouse_pos):
