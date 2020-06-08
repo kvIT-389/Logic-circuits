@@ -52,10 +52,18 @@ class Contact:
         self._cy *= q
 
     def move_to(self, new_cx, new_cy):
+        # new_cx and new_cy is absolute relative to the window. 
+
         self.element.move(
             self.element.x() + (new_cx - self.abs_cx), 
             self.element.y() + (new_cy - self.abs_cy)
         )
+
+    def try_to_connect_to(self, *contacts):
+        for contact in contacts:
+            if self.is_overlaid_on(contact):
+                self.move_to(contact.abs_cx, contact.abs_cy)
+                self.connect_to(contact)
 
     def is_overlaid_on(self, contact):
         dx = contact.abs_cx - self.abs_cx
@@ -63,7 +71,7 @@ class Contact:
 
         return dx*dx + dy*dy <= (self.r + contact.r) ** 2
 
-    def connect_to(self, contact):
+    def bind_with(self, contact):
         self.links.append(Link(contact))
         contact.links.append(Link(self))
 
@@ -71,6 +79,9 @@ class Contact:
         contact.links[-1].trackback = self.links[-1]
 
         contact.element.upd()
+
+    def connect_to(self, contact):
+        self.bind_with(contact)
 
     def receive_signals(self):
         if "i" in self._type:
@@ -95,7 +106,7 @@ class Contact:
                 remaining_links.append(link)
             else:
                 link.contact.links.remove(link.trackback)
-                link.element.upd()
+                link.element.upd(update_wire_segments=True)
 
         self.links = remaining_links
 
@@ -121,28 +132,72 @@ class WireContact(Contact):
         # i.e. and input, and output at the same time. 
         Contact.__init__(self, element, "io", cx, cy, None)
 
+        self.segments = []
+
     def draw(self, painter):
         r = int(self.r)
         painter.drawEllipse(self._cx - r, self._cy - r, 2*r, 2*r)
 
     def move_to(self, new_cx, new_cy):
-        self._cx = new_cx
-        self._cy = new_cy
+        # new_cx and new_cy is absolute relative to the window. 
+
+        self._cx = new_cx - self.element.x()
+        self._cy = new_cy - self.element.y()
+
+    def connect_to(self, contact):
+        if isinstance(contact, WireContact):
+            self.element.join(contact.element)
+        else:
+            self.bind_with(contact)
+
+    def is_invalid(self):
+        # Contact is invalid when it doesn't have any links 
+        # and belongs only to one segment. 
+
+        return not self.links and len(self.segments) < 2
 
 class WireSegment:
-    def __init__(self, wire, *contacts):
-        self._wire = wire
-        self._contacts = contacts
+    def __init__(self, wire, contact_0, contact_1):
+        self.wire = wire
+        self.contacts = [contact_0, contact_1]
+
+        contact_0.segments.append(self)
+        contact_1.segments.append(self)
 
     def draw(self, painter):
-        painter.drawLine(
-            self._contacts[0].cx, self._contacts[0].cy, 
-            self._contacts[1].cx, self._contacts[0].cy
-        )
-        painter.drawLine(
-            self._contacts[1].cx, self._contacts[0].cy, 
-            self._contacts[1].cx, self._contacts[1].cy
-        )
+        cx_0 = self.contacts[0].cx
+        cy_0 = self.contacts[0].cy
+        cx_1 = self.contacts[1].cx
+        cy_1 = self.contacts[1].cy
+        r = self.contacts[0].r
+
+        kx = -(cx_1 - cx_0 < 0) | (cx_1 - cx_0 > 0)
+        ky = -(cy_1 - cy_0 < 0) | (cy_1 - cy_0 > 0)
+
+        painter.drawLine(cx_0 + r*kx, cy_0, cx_1, cy_0)
+        painter.drawLine(cx_1, cy_0, cx_1, cy_1 - r*ky)
+
+    def is_invalid(self):
+        # Segment is invalid (i.e. it's to be removed) 
+        # when at least one its contacts is invalid. 
+
+        for contact in self.contacts:
+            if contact.is_invalid():
+                return True
+        else:
+            return False
+
+    def remove(self):
+        self.wire.segments.remove(self)
+
+        if self.contacts[0].is_invalid():
+            self.wire.contacts.remove(self.contacts[0])
+
+        if self.contacts[1].is_invalid():
+            self.wire.contacts.remove(self.contacts[1])
+
+        self.contacts[0].segments.remove(self)
+        self.contacts[1].segments.remove(self)
 
 class Link:
     def __init__(self, contact):

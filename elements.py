@@ -87,31 +87,38 @@ class LogicElement(QWidget):
 
     def connect_to_others(self, connected_elements=[]):
         self.update_condition()
+
+        not_connected_contacts = []
         for element in self.parentWidget().elements:
-            if (element is not self) and (element not in connected_elements):
-                for contact_0 in self.contacts:
-                    for contact_1 in element.contacts:
-                        if contact_0.is_overlaid_on(contact_1):
-                            contact_0.move_to(contact_1.abs_cx, 
-                                              contact_1.abs_cy)
-                            contact_0.connect_to(contact_1)
-
-    def upd(self, updating_element=None):
-        for contact in self.contacts:
-            contact.receive_signals()
-
-        self.update_condition()
-
-        if updating_element:
-            self.update_stack = list(updating_element.update_stack)
-            self.update_stack.append(updating_element)
+            if element not in [self] + connected_elements:
+                not_connected_contacts.extend(element.contacts)
 
         for contact in self.contacts:
-            contact.transmit_signal()
+            contact.try_to_connect_to(*not_connected_contacts)
 
-        self.update_stack.clear()
+        if isinstance(self, Wire):
+            self.maximize()
+            self.minimize()
 
-        self.update()
+    def upd(self, updating_element=None, update_wire_segments=False):
+        if update_wire_segments and isinstance(self, Wire):
+            self.update_segments()
+        else:
+            for contact in self.contacts:
+                contact.receive_signals()
+
+            self.update_condition()
+
+            if updating_element:
+                self.update_stack = list(updating_element.update_stack)
+                self.update_stack.append(updating_element)
+
+            for contact in self.contacts:
+                contact.transmit_signal()
+
+            self.update_stack.clear()
+
+            self.update()
 
     def clear_links(self, unaffected_elements=[]):
         # unaffected_elements contains elements 
@@ -124,6 +131,9 @@ class LogicElement(QWidget):
 
         if isinstance(self, (Switch, Lamp)):
             self.update_condition()
+
+    def remove(self):
+        self.parentWidget().remove_element(self)
 
 class DraggableElement(LogicElement):
     def __init__(self, parent):
@@ -375,7 +385,8 @@ class Wire(LogicElement):
 
     def maximize(self):
         for contact in self.contacts:
-            contact.move_to(contact.abs_cx, contact.abs_cy)
+            contact.move_to(contact.abs_cx + self.x(), 
+                            contact.abs_cy + self.y())
 
         self.setGeometry(self.parentWidget().geometry())
 
@@ -398,21 +409,40 @@ class Wire(LogicElement):
         self.setGeometry(x, y, w, h)
 
         for contact in self.contacts:
-            contact.move_to(contact.cx - x, contact.cy - y)
+            contact.move_to(contact.cx, contact.cy)
 
     def end_creating(self):
         # Ends creating wire or its new segment. 
 
+        not_connected_contacts = []
         for element in self.parentWidget().elements:
             if element is not self:
-                for contact in element.contacts:
-                    if self.contacts[-1].is_overlaid_on(contact):
-                        self.contacts[-1].move_to(contact.abs_cx, 
-                                                  contact.abs_cy)
-                        self.contacts[-1].connect_to(contact)
+                not_connected_contacts.extend(element.contacts)
 
+        self.contacts[-1].try_to_connect_to(*not_connected_contacts)
 
+        self.update_segments()
         self.minimize()
+
+    def join(self, wire):
+        pass
+
+    def update_segments(self):
+        # Determines invalid segments and removes it. 
+
+        while True:
+            for segment in self.segments:
+                if segment.is_invalid():
+                    segment.remove()
+
+                    break
+            else:
+                break
+
+        if self.segments:
+            self.upd()
+        else:
+            self.remove()
 
     def update_condition(self):
         for contact in self.contacts:
