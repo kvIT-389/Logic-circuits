@@ -11,8 +11,8 @@ class Contact:
     def __init__(self, element, type_, cx, cy, wire):
         self.element = element
 
-        self._cx = cx
-        self._cy = cy
+        self.cx = cx
+        self.cy = cy
         self.r = self.default_r
 
         self._terminal = QPainterPath()
@@ -48,8 +48,8 @@ class Contact:
 
     def scale(self, q):
         self.r *= q
-        self._cx *= q
-        self._cy *= q
+        self.cx *= q
+        self.cy *= q
 
     def move_to(self, new_cx, new_cy):
         # new_cx and new_cy is absolute relative to the window. 
@@ -111,20 +111,12 @@ class Contact:
         self.links = remaining_links
 
     @property
-    def cx(self):
-        return self._cx
-
-    @property
-    def cy(self):
-        return self._cy
-
-    @property
     def abs_cx(self):
-        return self.element.x() + round(self._cx)
+        return self.element.x() + round(self.cx)
 
     @property
     def abs_cy(self):
-        return self.element.y() + round(self._cy)
+        return self.element.y() + round(self.cy)
 
 class WireContact(Contact):
     def __init__(self, element, cx, cy):
@@ -136,13 +128,13 @@ class WireContact(Contact):
 
     def draw(self, painter):
         r = int(self.r)
-        painter.drawEllipse(self._cx - r, self._cy - r, 2*r, 2*r)
+        painter.drawEllipse(self.cx - r, self.cy - r, 2*r, 2*r)
 
     def move_to(self, new_cx, new_cy):
         # new_cx and new_cy is absolute relative to the window. 
 
-        self._cx = new_cx - self.element.x()
-        self._cy = new_cy - self.element.y()
+        self.cx = new_cx - self.element.x()
+        self.cy = new_cy - self.element.y()
 
     def connect_to(self, contact):
         if isinstance(contact, WireContact):

@@ -49,6 +49,14 @@ class MainWindow(QMainWindow):
                 else:
                     sandbox.remove_elements_group(True)
 
+        elif event.nativeVirtualKey() in [37, 38, 39, 40]:
+            for element in self.sandbox.elements:
+                if element.hover:
+                    keys = {37: -90, 38: 180, 39: 90, 40: 180}
+                    element.rotate(keys[event.nativeVirtualKey()])
+
+                    break
+
     def keyReleaseEvent(self, event):
         if event.nativeVirtualKey() == 16:
             self.keys["shift"] = False

@@ -35,7 +35,7 @@ class LogicElement(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        painter.scale(self.scale_value, self.scale_value)
+        self.transform_painter(painter)
 
         if self.hover:
             pen = QPen(
@@ -59,6 +59,18 @@ class LogicElement(QWidget):
 
         painter.end()
 
+    def transform_painter(self, painter):
+        painter.rotate(self.rotation)
+
+        w = self.width()
+        h = self.height()
+        offsets = [
+            (0, 0), (0, -w), (-w, -h), (-h, 0)
+        ][self.rotation // 90]
+
+        painter.translate(*offsets)
+        painter.scale(self.scale_value, self.scale_value)
+
     def draw_outline(self, painter, pen):
         painter.strokePath(self.outline, pen)
 
@@ -73,17 +85,6 @@ class LogicElement(QWidget):
             Contact.draw_from_tuple(painter, data)
 
         painter.drawPath(cls.outline)
-
-    def scale(self, q):
-        self.scale_value *= q
-
-        width = self.default_width * self.scale_value
-        height = self.default_height * self.scale_value
-
-        self.resize(width, height)
-
-        for contact in self.contacts:
-            contact.scale(q)
 
     def connect_to_others(self, connected_elements=[]):
         self.update_condition()
@@ -139,6 +140,7 @@ class DraggableElement(LogicElement):
     def __init__(self, parent):
         LogicElement.__init__(self, parent)
 
+        self.rotation = 0   # in degrees 
         self.press_pos = None
 
         # At the time of creation of new wire (or its new segment), 
@@ -227,6 +229,43 @@ class DraggableElement(LogicElement):
 
     def leaveEvent(self, event):
         self.hover = False
+        self.update()
+
+    def scale(self, q):
+        self.scale_value *= q
+
+        width = round(self.default_width * self.scale_value)
+        height = round(self.default_height * self.scale_value)
+
+        if self.rotation % 180 == 0:
+            self.resize(width, height)
+        else:
+            self.resize(height, width)
+
+        for contact in self.contacts:
+            contact.scale(q)
+
+    def rotate(self, angle):
+        self.rotation = (self.rotation + angle) % 360
+
+        if angle % 180 == 0:
+            for contact in self.contacts:
+                contact.cx = self.width() - contact.cx
+                contact.cy = self.height() - contact.cy
+        else:
+            self.resize(self.height(), self.width())
+
+            for contact in self.contacts:
+                if angle > 0:
+                    new_cx = self.width() - contact.cy
+                    new_cy = contact.cx
+                elif angle < 0:
+                    new_cx = contact.cy
+                    new_cy = self.height() - contact.cx
+
+                contact.cx = new_cx
+                contact.cy = new_cy
+
         self.update()
 
 class And(DraggableElement):
