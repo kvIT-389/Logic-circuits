@@ -1,11 +1,15 @@
-# Contains all colors using in application. 
-
 from PyQt5.QtGui import QColor
 
 class Palette:
+    """
+    Contains all colors using in application. 
+    """
+
+    __new__ = None
+
     panel_border = QColor(62, 63, 65)
 
-    class group:
+    class elements_group:
         border = QColor(128, 132, 129)
         fill = QColor(200, 200, 200, 20)
 
@@ -29,5 +33,3 @@ class Palette:
         }
 
     lamp_light = QColor(210, 207, 24, 200)
-
-    __new__ = None

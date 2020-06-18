@@ -1,6 +1,8 @@
-# Contains some classes implementing elements' logic. 
+"""
+Contains some classes implementing elements' logic. 
+"""
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRect, QPoint
 from PyQt5.QtGui import QPainterPath, QPen, QBrush
 
 from palette import Palette
@@ -21,8 +23,9 @@ class Contact:
         self._wire = wire
 
         self._type = type_   # "i" - input; "o" - output 
-        self.links = []
+        self.links = set()
         self.condition = False   # False - inactive; True - active 
+
 
     def draw(self, painter):
         color = Palette.element.contact[self.condition]
@@ -46,24 +49,29 @@ class Contact:
         painter.drawEllipse(data[1] - r, data[2] - r, 2*r, 2*r)
         painter.drawPath(data[3])
 
+
     def scale(self, q):
         self.r *= q
         self.cx *= q
         self.cy *= q
 
-    def move_to(self, new_cx, new_cy):
-        # new_cx and new_cy is absolute relative to the window. 
+    def move_to(self, cx, cy):
+        """
+        Moves contact's element so that its abs_cx and abs_cy 
+        will be equal to cx and cy. 
+        """
 
         self.element.move(
-            self.element.x() + (new_cx - self.abs_cx), 
-            self.element.y() + (new_cy - self.abs_cy)
+            cx - round(self.cx), cy - round(self.cy)
         )
 
-    def try_to_connect_to(self, *contacts):
-        for contact in contacts:
-            if self.is_overlaid_on(contact):
-                self.move_to(contact.abs_cx, contact.abs_cy)
-                self.connect_to(contact)
+    @property
+    def abs_cx(self):
+        return self.element.x() + round(self.cx)
+
+    @property
+    def abs_cy(self):
+        return self.element.y() + round(self.cy)
 
     def is_overlaid_on(self, contact):
         dx = contact.abs_cx - self.abs_cx
@@ -71,17 +79,20 @@ class Contact:
 
         return dx*dx + dy*dy <= (self.r + contact.r) ** 2
 
-    def bind_with(self, contact):
-        self.links.append(Link(contact))
-        contact.links.append(Link(self))
 
-        self.links[-1].trackback = contact.links[-1]
-        contact.links[-1].trackback = self.links[-1]
-
-        contact.element.upd()
+    def try_to_connect_to(self, contacts):
+        for contact in contacts:
+            if self.is_overlaid_on(contact):
+                self.move_to(contact.abs_cx, contact.abs_cy)
+                self.connect_to(contact)
 
     def connect_to(self, contact):
-        self.bind_with(contact)
+        Link.bind(self, contact)
+
+    def disconnect_from(self, elements):
+        for link in list(self.links):
+            if link.element in elements:
+                link.remove()
 
     def receive_signals(self):
         if "i" in self._type:
@@ -98,26 +109,6 @@ class Contact:
                 if link.element not in self.element.update_stack:
                     link.element.upd(updating_element=self.element)
 
-    def clear_links(self, unaffected_elements):
-        remaining_links = []
-
-        for link in self.links:
-            if link.element in unaffected_elements:
-                remaining_links.append(link)
-            else:
-                link.contact.links.remove(link.trackback)
-                link.element.upd(update_wire_segments=True)
-
-        self.links = remaining_links
-
-    @property
-    def abs_cx(self):
-        return self.element.x() + round(self.cx)
-
-    @property
-    def abs_cy(self):
-        return self.element.y() + round(self.cy)
-
 class WireContact(Contact):
     def __init__(self, element, cx, cy):
         # Type of WireContact is "io", 
@@ -127,24 +118,30 @@ class WireContact(Contact):
         self.segments = []
 
     def draw(self, painter):
-        r = int(self.r)
+        r = round(self.r)
         painter.drawEllipse(self.cx - r, self.cy - r, 2*r, 2*r)
 
-    def move_to(self, new_cx, new_cy):
-        # new_cx and new_cy is absolute relative to the window. 
+    def move_to(self, cx, cy):
+        """
+        Moves contact to cx and cy relative to the window. 
+        """
 
-        self.cx = new_cx - self.element.x()
-        self.cy = new_cy - self.element.y()
+        self.cx = cx - self.element.x()
+        self.cy = cy - self.element.y()
 
     def connect_to(self, contact):
         if isinstance(contact, WireContact):
             self.element.join(contact.element)
         else:
-            self.bind_with(contact)
+            Link.bind(self, contact)
 
     def is_invalid(self):
-        # Contact is invalid when it doesn't have any links 
-        # and belongs only to one segment. 
+        """
+        Returns True if contact is invalid, otherwise returns False. 
+
+        WireContact is invalid when it doesn't have any links 
+        and belongs only to one segment. 
+        """
 
         return not self.links and len(self.segments) < 2
 
@@ -157,6 +154,11 @@ class WireSegment:
         contact_1.segments.append(self)
 
     def draw(self, painter):
+        """
+        Draws wire's texture - line between its contacts, 
+        using painter. 
+        """
+
         cx_0 = self.contacts[0].cx
         cy_0 = self.contacts[0].cy
         cx_1 = self.contacts[1].cx
@@ -169,9 +171,21 @@ class WireSegment:
         painter.drawLine(cx_0 + r*kx, cy_0, cx_1, cy_0)
         painter.drawLine(cx_1, cy_0, cx_1, cy_1 - r*ky)
 
+    def get_rect(self):
+        rect = QRect(
+            QPoint(self.contacts[0].abs_cx, self.contacts[0].abs_cy), 
+            QPoint(self.contacts[1].abs_cx, self.contacts[1].abs_cy)
+        )
+        r = self.contacts[0].r
+
+        return rect.normalized().adjusted(-r, -r, r, r)
+
     def is_invalid(self):
-        # Segment is invalid (i.e. it's to be removed) 
-        # when at least one its contacts is invalid. 
+        """
+        Returns True if segment is invalid, otherwise returns False. 
+
+        Segment is invalid when at least one its contact is invalid. 
+        """
 
         for contact in self.contacts:
             if contact.is_invalid():
@@ -180,6 +194,10 @@ class WireSegment:
             return False
 
     def remove(self):
+        """
+        Removes segment and its invalid contacts from its wire. 
+        """
+
         self.wire.segments.remove(self)
 
         if self.contacts[0].is_invalid():
@@ -195,4 +213,29 @@ class Link:
     def __init__(self, contact):
         self.contact = contact
         self.element = contact.element
-        self.trackback = None
+        self._trackback = None
+
+    def __eq__(self, other):
+        return self.contact is other.contact
+
+    def __hash__(self):
+        return hash(self.contact)
+
+    @classmethod
+    def bind(cls, contact_0, contact_1):
+        link_0 = cls(contact_1)
+        link_1 = cls(contact_0)
+
+        contact_0.links.add(link_0)
+        contact_1.links.add(link_1)
+
+        link_0._trackback = link_1
+        link_1._trackback = link_0
+
+        contact_0.element.upd()
+
+    def remove(self):
+        self._trackback.contact.links.remove(self)
+        self.contact.links.remove(self._trackback)
+
+        self.element.upd(update_wire_segments=True)

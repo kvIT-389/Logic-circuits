@@ -1,13 +1,15 @@
-# Contains graphic information about each circuit element such as: 
-# - width and height; 
-# - outline: part of element distinguishing it from others; 
-# - contacts data: tuples of arguments passing to class Contact 
-#   when initialize its instance; 
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainterPath
 
 class Graphics:
+    """
+    Contains graphic information about each circuit element such as: 
+    - width and height; 
+    - outline: part of element distinguishing it from others; 
+    - contacts data: tuples of arguments passing to class Contact 
+      when initialize its instance; 
+    """
+
     __new__ = None
 
     __And = None

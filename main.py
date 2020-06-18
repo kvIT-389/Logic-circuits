@@ -1,6 +1,7 @@
 import sys
 import os.path
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtGui import QIcon
 
@@ -10,23 +11,25 @@ class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
 
-        window_height = self.screen().geometry().height() * 0.5
+        window_height = max(self.screen().geometry().height(), 640) * 0.5
         window_width = window_height * 1.6
 
-        app_dir = os.path.dirname(os.path.abspath(__file__))   # Application directory 
+        app_dir = os.path.dirname(os.path.abspath(__file__))
         window_icon_path = os.path.join(app_dir, "icon.ico")
-
-        self.keys = {"shift": False}
 
         # Creating application interface 
 
-        self.sandbox = Sandbox(self, round(window_height * 0.011) / 10)
+        self.sandbox = Sandbox(self, round(window_height * 0.0011, 1))
         self.toolbar = Toolbar(self.sandbox, window_height * 0.145)
 
         # Window setting 
 
         self.setMinimumSize(window_width, window_height)
-        self.setGeometry(300, 200, window_width, window_height)
+        self.setGeometry(
+            window_width * 0.34, window_height * 0.37, 
+            window_width, window_height
+        )
+
         self.setWindowTitle("Logic circuits")
         self.setWindowIcon(QIcon(window_icon_path))
         self.setStyleSheet("background-color: #f0f0f0;")
@@ -34,12 +37,11 @@ class MainWindow(QMainWindow):
         self.show()
 
     def keyPressEvent(self, event):
-        if event.nativeVirtualKey() == 16:
-            self.keys["shift"] = True
-
-        elif event.nativeVirtualKey() == 46:
+        # DELETE pressed 
+        if event.nativeVirtualKey() == 46:
             sandbox = self.sandbox
-            if self.keys["shift"]:
+
+            if event.modifiers() == Qt.ShiftModifier:
                 sandbox.clear()
             else:
                 for element in sandbox.elements:
@@ -49,6 +51,7 @@ class MainWindow(QMainWindow):
                 else:
                     sandbox.remove_elements_group(True)
 
+        # Arrow key pressed 
         elif event.nativeVirtualKey() in [37, 38, 39, 40]:
             for element in self.sandbox.elements:
                 if element.hover:
@@ -56,10 +59,6 @@ class MainWindow(QMainWindow):
                     element.rotate(keys[event.nativeVirtualKey()])
 
                     break
-
-    def keyReleaseEvent(self, event):
-        if event.nativeVirtualKey() == 16:
-            self.keys["shift"] = False
 
     def resizeEvent(self, event):
         self.sandbox.resize(self.width(), self.height())
