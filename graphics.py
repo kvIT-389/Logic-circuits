@@ -168,9 +168,7 @@ class Graphics:
                 ("i", 70, 237, cls.__create_wire(70, 227, 70, 211)),
             )
 
-            contact_height = 39
-
-            cls.__Lamp = (width, height, base, bulb, contacts_data, contact_height)
+            cls.__Lamp = (width, height, base, bulb, contacts_data)
 
         return cls.__Lamp
 

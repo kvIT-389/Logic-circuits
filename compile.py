@@ -2,13 +2,12 @@ import os
 import shutil
 
 from PyInstaller.__main__ import run as RunPyInstaller
-from colorama import init, Back, Fore
+from colorama import init, Fore
 
 init()
-print(Fore.BLACK, Back.YELLOW, end='', sep='')
+print(Fore.YELLOW, end='')
 
 if input('Continue? [y/n] ') == 'y':
-    cur_dir = os.path.dirname(os.path.abspath(__file__))
     name = 'Logic circuits'
     icon = 'icon.ico'
     onefile = False
@@ -17,7 +16,7 @@ if input('Continue? [y/n] ') == 'y':
         shutil.rmtree('exe')
 
     try:
-        print(Back.GREEN)
+        print(Fore.GREEN)
         RunPyInstaller([
             f'--name={name}',
             f'--distpath=exe',
@@ -32,24 +31,23 @@ if input('Continue? [y/n] ') == 'y':
         os.remove(f'{name}.spec')
         shutil.rmtree('build')
 
-        additional_files = ['icon.ico']
-        for file_ in additional_files:
-            shutil.copy(file_, 'exe')
+        shutil.copy('icon.ico', 'exe')
+        shutil.copytree('png', 'exe/png')
 
         if not onefile:
             os.chdir('exe')
 
-            for file_ in additional_files:
-                shutil.move(file_, name)
+            shutil.move('icon.ico', name)
+            shutil.move('png', name)
 
-            print(Back.YELLOW)
+            print(Fore.YELLOW)
             if input('Do you want to create an archive? [y/n] ') == 'y':
                 try:
                     shutil.make_archive(name, 'zip', name)
                 except:
                     pass
                 else:
-                    print(Back.GREEN, 'Archive was created successfully', sep='')
+                    print(Fore.GREEN, 'Archive was created successfully', sep='')
     finally:
-        print(Back.CYAN)
+        print(Fore.CYAN)
         input('<Press Enter to close console>')

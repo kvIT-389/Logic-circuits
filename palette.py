@@ -7,8 +7,6 @@ class Palette:
 
     __new__ = None
 
-    panel_border = QColor(62, 63, 65)
-
     class elements_group:
         border = QColor(128, 132, 129)
         fill = QColor(200, 200, 200, 20)

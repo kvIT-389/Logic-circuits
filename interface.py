@@ -3,23 +3,20 @@ Contains widgets used for creating GUI.
 """
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtGui import QPainter, QPen
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel
+from PyQt5.QtGui import QPainter, QPixmap
 
 from elements import And, Or, Xor, Not, Switch, Lamp, Wire, ElementsGroup
-from palette import Palette
 
 class Sandbox(QWidget):
     def __init__(self, parent, initial_scale):
         QWidget.__init__(self, parent)
 
-        self.elements = set()   # Contains all elements of circuit 
+        self.elements = set()
         self.circuit_scale = initial_scale
 
         self._press_pos = None
         self._elements_group = None
-
-        self.show()
 
     def mousePressEvent(self, event):
         # Left button press 
@@ -56,16 +53,9 @@ class Sandbox(QWidget):
         self._press_pos = None
         self.setCursor(Qt.ArrowCursor)
 
-    def add_element(self, element_constructor, mouse_pos):
+    def add_element(self, element_constructor):
         new_element = element_constructor(self)
-
         new_element.scale(self.circuit_scale)
-        new_element.move(
-            mouse_pos - new_element.geometry().center()
-        )
-
-        # When element is created it already hovered. 
-        new_element.hover = True
 
         self.elements.add(new_element)
 
@@ -123,39 +113,48 @@ class Toolbar(QWidget):
     def __init__(self, parent, height):
         QWidget.__init__(self, parent)
 
-        spacing = round(height * 0.125)
+        spacing = height * 0.125
         panel_height = height - 2*spacing
-        panel_width = round(
-            panel_height / ElementPanel.default_height * ElementPanel.default_width
-        )
+
+        self.setLayout(QHBoxLayout())
+
+        self.layout().setSpacing(spacing)
+        self.layout().setContentsMargins(*(spacing,) * 4)
+        self.layout().setAlignment(Qt.AlignLeft)
 
         elements = And, Or, Xor, Not, Switch, Lamp
+        for element in elements:
+            new_panel = ElementPanel(panel_height, element)
+            self.layout().addWidget(new_panel)
 
-        for n in range(len(elements)):
-            new_panel = ElementPanel(self, elements[n])
-            new_panel.move(spacing + n *(panel_width + spacing), spacing)
-            new_panel.resize(panel_width, panel_height)
+        self.resize(0, height)
 
-        self.resize(
-            len(elements) * (panel_width + spacing) + spacing, height
-        )
-        self.show()
-
-class ElementPanel(QWidget):
-    default_width = 420
-    default_height = 250
-
-    def __init__(self, parent, element_constructor):
-        QWidget.__init__(self, parent)
+class ElementPanel(QLabel):
+    def __init__(self, height, element_constructor):
+        QLabel.__init__(self, "")
 
         self._element_constructor = element_constructor
 
         # When new element was created but panel hasn't released yet, 
-        # created_element stores this element. 
+        # _created_element stores this element. 
         self._created_element = None
 
+        self._border = QPixmap("png/Border.png").scaledToHeight(
+            height, Qt.SmoothTransformation
+        )
+        self.setFixedSize(self._border.size())
+
+        self._update_icon()
+
         self.setCursor(Qt.PointingHandCursor)
-        self.show()
+
+    def _update_icon(self):
+        self._icon = QPixmap(
+            f"png/{self._element_constructor.__name__}.png"
+        ).scaled(
+            self.width() * 0.88, self.height() * 0.83,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
 
     def mousePressEvent(self, event):
         # Only left button press 
@@ -163,9 +162,16 @@ class ElementPanel(QWidget):
             sandbox = self.window().sandbox
 
             self._created_element = sandbox.add_element(
-                self._element_constructor, event.windowPos().toPoint()
+                self._element_constructor
             )
-            sandbox.remove_elements_group()
+
+            self._created_element.move(
+                event.windowPos().toPoint() -
+                self._created_element.geometry().center()
+            )
+
+            # When element was created, it already hovered. 
+            self._created_element.hover = True
 
     def mouseMoveEvent(self, event):
         if self._created_element:
@@ -183,34 +189,12 @@ class ElementPanel(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
 
-        x_scale = self.width() / self.default_width
-        y_scale = self.height() / self.default_height
-
-        painter.scale(x_scale, y_scale)
-
-        # Drawing border 
-
-        pen = QPen(
-            Palette.panel_border, 10, 
-            Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin
-        )
-        painter.setPen(pen)
-
-        painter.drawRoundedRect(
-            5, 5, 
-            self.default_width - 10, self.default_height - 10, 
-            40, 40
-        )
-
-        # Drawing element 
-
-        pen.setWidth(6)
-        painter.setPen(pen)
-
-        self._element_constructor.draw_in_panel(
-            painter, self.default_width, self.default_height
+        painter.drawPixmap(0, 0, self._border)
+        painter.drawPixmap(
+            (self.width() - self._icon.width()) * 0.5,
+            (self.height() - self._icon.height()) * 0.5,
+            self._icon
         )
 
         painter.end()

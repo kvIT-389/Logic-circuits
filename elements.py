@@ -36,8 +36,8 @@ class LogicElement(QWidget):
         self.update_condition()
 
         contacts_to_connect = []
-        for element in self.parentWidget().elements:
-            if element is not self and element in elements:
+        for element in elements:
+            if element is not self:
                 contacts_to_connect.extend(element.contacts)
 
         for contact in self.contacts:
@@ -77,7 +77,7 @@ class LogicElement(QWidget):
             self.update()
 
     def remove(self):
-        self.parentWidget().remove_element(self)
+        self.parent().remove_element(self)
 
 class DraggableElement(LogicElement):
     def __init__(self, parent):
@@ -108,7 +108,7 @@ class DraggableElement(LogicElement):
             painter.setPen(pen)
 
             painter.drawRect(
-                1.5, 1.5, self.default_width - 3, self.default_height - 3
+                2, 2, self.default_width - 4, self.default_height - 4
             )
 
         for contact in self.contacts:
@@ -137,18 +137,6 @@ class DraggableElement(LogicElement):
     def draw_outline(self, painter, pen):
         painter.strokePath(self.outline, pen)
 
-    @classmethod
-    def draw_in_panel(cls, painter, panel_width, panel_height):
-        x_offset = (panel_width - cls.default_width) / 2
-        y_offset = (panel_height - cls.default_height) / 2
-
-        painter.translate(x_offset, y_offset)
-
-        for data in cls.contacts_data:
-            Contact.draw_from_tuple(painter, data)
-
-        painter.drawPath(cls.outline)
-
     # Mouse events 
 
     def mousePressEvent(self, event):
@@ -156,7 +144,7 @@ class DraggableElement(LogicElement):
         if event.button() == 1:
             self._press_pos = event.pos()
 
-            self.disconnect_from(self.parentWidget().elements)
+            self.disconnect_from(self.parent().elements)
             self.raise_()
 
             self.update()
@@ -185,7 +173,7 @@ class DraggableElement(LogicElement):
 
                     # or creating new. 
                     else:
-                        self._created_wire = self.parentWidget().add_wire(
+                        self._created_wire = self.parent().add_wire(
                             contact.abs_cx, contact.abs_cy, new_cx, new_cy
                         )
 
@@ -220,11 +208,11 @@ class DraggableElement(LogicElement):
         if self._press_pos:
             self._press_pos = None
 
-            self.connect_to(self.parentWidget().elements)
+            self.connect_to(self.parent().elements)
 
         elif self._created_wire:
             self._created_wire.connect_to(
-                self.parentWidget().elements
+                self.parent().elements
             )
             self._created_wire = None
 
@@ -276,7 +264,8 @@ class DraggableElement(LogicElement):
         self.update()
 
 class And(DraggableElement):
-    default_width, default_height, outline, contacts_data = Graphics.And()
+    default_width, default_height, outline, contacts_data = \
+        Graphics.And()
 
     def update_condition(self):
         i0 = self.contacts[0].condition
@@ -285,7 +274,8 @@ class And(DraggableElement):
         self.contacts[2].condition = i0 and i1
 
 class Or(DraggableElement):
-    default_width, default_height, outline, contacts_data = Graphics.Or()
+    default_width, default_height, outline, contacts_data = \
+        Graphics.Or()
 
     def update_condition(self):
         i0 = self.contacts[0].condition
@@ -294,7 +284,8 @@ class Or(DraggableElement):
         self.contacts[2].condition = i0 or i1
 
 class Xor(DraggableElement):
-    default_width, default_height, outline, contacts_data = Graphics.Xor()
+    default_width, default_height, outline, contacts_data = \
+        Graphics.Xor()
 
     def update_condition(self):
         i0 = self.contacts[0].condition
@@ -303,7 +294,8 @@ class Xor(DraggableElement):
         self.contacts[2].condition = (i0 or i1) and not (i0 and i1)
 
 class Not(DraggableElement):
-    default_width, default_height, outline, contacts_data = Graphics.Not()
+    default_width, default_height, outline, contacts_data = \
+        Graphics.Not()
 
     def update_condition(self):
         i0 = self.contacts[0].condition
@@ -311,7 +303,9 @@ class Not(DraggableElement):
         self.contacts[1].condition = not i0
 
 class Switch(DraggableElement):
-    default_width, default_height, base, toggle, toggle_offset, contacts_data = Graphics.Switch()
+    default_width, default_height, base, toggle, \
+        toggle_offset, contacts_data = Graphics.Switch()
+
     condition = False   # False - inactive; True - active 
 
     def draw_outline(self, painter, pen):
@@ -327,30 +321,13 @@ class Switch(DraggableElement):
 
         painter.drawPath(self.toggle)
 
-    @classmethod
-    def draw_in_panel(cls, painter, panel_width, panel_height):
-        # Scaling Switch to stretch it by width of And. 
-        scale = And.default_width / cls.default_width
-
-        x_offset = (panel_width - cls.default_width * scale) / 2
-        y_offset = (panel_height - cls.default_height * scale) / 2
-
-        painter.translate(x_offset, y_offset)
-        painter.scale(scale, scale)
-
-        for data in cls.contacts_data:
-            Contact.draw_from_tuple(painter, data)
-
-        painter.drawPath(cls.base)
-
-        painter.setBrush(QBrush(Palette.switch_toggle.fill[False]))
-        painter.drawPath(cls.toggle)
-
     def update_condition(self):
         self.contacts[0].condition = self.condition
 
 class Lamp(DraggableElement):
-    default_width, default_height, base, bulb, contacts_data, contact_height = Graphics.Lamp()
+    default_width, default_height, base, bulb, \
+        contacts_data = Graphics.Lamp()
+
     condition = False   # False - inactive; True - active 
 
     def draw_outline(self, painter, pen):
@@ -363,23 +340,11 @@ class Lamp(DraggableElement):
 
         painter.drawPath(self.bulb)
 
-    @classmethod
-    def draw_in_panel(cls, painter, panel_width, panel_height):
-        height_without_contact = cls.default_height - cls.contact_height
-
-        x_offset = (panel_width - cls.default_width) / 2
-        y_offset = (panel_height - height_without_contact) / 2
-
-        painter.translate(x_offset, y_offset)
-
-        painter.drawPath(cls.base)
-        painter.drawPath(cls.bulb)
-
     def update_condition(self):
         self.condition = self.contacts[0].condition
 
 class Wire(LogicElement):
-    condition = False
+    condition = False   # False - inactive; True - active 
 
     def __init__(self, parent):
         LogicElement.__init__(self, parent)
@@ -441,7 +406,7 @@ class Wire(LogicElement):
                 contact.abs_cy + self.y()
             )
 
-        self.setGeometry(self.parentWidget().geometry())
+        self.setGeometry(self.parent().geometry())
 
     def minimize(self):
         new_geometry = QRect()
@@ -513,7 +478,7 @@ class ElementsGroup(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        pen_width = round(2 * self.parentWidget().circuit_scale)
+        pen_width = round(2 * self.parent().circuit_scale)
 
         pen = QPen(
             Palette.elements_group.border, pen_width, 
@@ -536,10 +501,10 @@ class ElementsGroup(QWidget):
         if event.button() == 1:
             self._press_pos = event.pos()
 
-            if self.elements != self.parentWidget().elements:
+            if self.elements != self.parent().elements:
                 for element in self.elements:
                     element.disconnect_from(
-                        self.parentWidget().elements - self.elements
+                        self.parent().elements - self.elements
                     )
                     element.upd()
 
@@ -556,10 +521,10 @@ class ElementsGroup(QWidget):
         if self._press_pos:
             self._press_pos = None
 
-            if self.elements != self.parentWidget().elements:
+            if self.elements != self.parent().elements:
                 for element in self.elements:
                     element.connect_to(
-                        self.parentWidget().elements - self.elements
+                        self.parent().elements - self.elements
                     )
 
             self.update_()
@@ -576,7 +541,7 @@ class ElementsGroup(QWidget):
         for element in self.elements:
             new_geometry = new_geometry.united(element.geometry())
 
-        padding = round(10 * self.parentWidget().circuit_scale)
+        padding = round(10 * self.parent().circuit_scale)
         new_geometry.adjust(-padding, -padding, padding, padding)
 
         self.setGeometry(new_geometry)
@@ -588,9 +553,9 @@ class ElementsGroup(QWidget):
         it should contain at least 2 elements. 
         """
 
-        self.elements -= self.elements - self.parentWidget().elements
+        self.elements -= self.elements - self.parent().elements
 
         if len(self.elements) < 2:
-            self.parentWidget().remove_elements_group()
+            self.parent().remove_elements_group()
         else:
             self._align_borders()

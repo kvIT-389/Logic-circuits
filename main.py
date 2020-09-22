@@ -1,9 +1,8 @@
 import sys
-import os.path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 
 from interface import Sandbox, Toolbar
 
@@ -14,12 +13,9 @@ class MainWindow(QMainWindow):
         window_height = max(self.screen().geometry().height(), 640) * 0.5
         window_width = window_height * 1.6
 
-        app_dir = os.path.dirname(os.path.abspath(__file__))
-        window_icon_path = os.path.join(app_dir, "icon.ico")
-
         # Creating application interface 
 
-        self.sandbox = Sandbox(self, round(window_height * 0.0011, 1))
+        self.sandbox = Sandbox(self, round(window_height * 0.001, 2))
         self.toolbar = Toolbar(self.sandbox, window_height * 0.145)
 
         # Window setting 
@@ -31,8 +27,8 @@ class MainWindow(QMainWindow):
         )
 
         self.setWindowTitle("Logic circuits")
-        self.setWindowIcon(QIcon(window_icon_path))
-        self.setStyleSheet("background-color: #f0f0f0;")
+        self.setWindowIcon(QIcon(QPixmap("icon.ico")))
+        self.setStyleSheet("background-color: #f7f7f7;")
 
         self.show()
 
@@ -61,7 +57,8 @@ class MainWindow(QMainWindow):
                     break
 
     def resizeEvent(self, event):
-        self.sandbox.resize(self.width(), self.height())
+        self.sandbox.resize(self.size())
+        self.toolbar.resize(self.width(), self.toolbar.height())
         self.toolbar.move(0, self.height() - self.toolbar.height())
 
 if __name__ == "__main__":
