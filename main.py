@@ -6,6 +6,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 from interface import Sandbox, Toolbar
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self.sandbox.resize(self.size())
         self.toolbar.resize(self.width(), self.toolbar.height())
         self.toolbar.move(0, self.height() - self.toolbar.height())
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

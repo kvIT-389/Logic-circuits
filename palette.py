@@ -1,5 +1,6 @@
 from PyQt5.QtGui import QColor
 
+
 class Palette:
     """
     Contains all colors using in application. 

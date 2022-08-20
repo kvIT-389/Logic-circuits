@@ -8,6 +8,7 @@ from PyQt5.QtGui import QPainter, QPixmap
 
 from elements import And, Or, Xor, Not, Switch, Lamp, Wire, ElementsGroup
 
+
 class Sandbox(QWidget):
     def __init__(self, parent, initial_scale):
         QWidget.__init__(self, parent)
@@ -109,6 +110,7 @@ class Sandbox(QWidget):
 
         self.setCursor(Qt.ArrowCursor)
 
+
 class Toolbar(QWidget):
     def __init__(self, parent, height):
         QWidget.__init__(self, parent)
@@ -128,6 +130,7 @@ class Toolbar(QWidget):
             self.layout().addWidget(new_panel)
 
         self.resize(0, height)
+
 
 class ElementPanel(QLabel):
     def __init__(self, height, element_constructor):

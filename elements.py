@@ -1,7 +1,3 @@
-"""
-Contains circuit elements widgets for creating circuits. 
-"""
-
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QPen, QBrush
@@ -10,6 +6,7 @@ from connections import Contact, WireContact, WireSegment
 
 from graphics import Graphics
 from palette import Palette
+
 
 class LogicElement(QWidget):
     default_width = 0
@@ -78,6 +75,7 @@ class LogicElement(QWidget):
 
     def remove(self):
         self.parent().remove_element(self)
+
 
 class DraggableElement(LogicElement):
     def __init__(self, parent):
@@ -263,6 +261,7 @@ class DraggableElement(LogicElement):
 
         self.update()
 
+
 class And(DraggableElement):
     default_width, default_height, outline, contacts_data = \
         Graphics.And()
@@ -272,6 +271,7 @@ class And(DraggableElement):
         i1 = self.contacts[1].condition
 
         self.contacts[2].condition = i0 and i1
+
 
 class Or(DraggableElement):
     default_width, default_height, outline, contacts_data = \
@@ -283,6 +283,7 @@ class Or(DraggableElement):
 
         self.contacts[2].condition = i0 or i1
 
+
 class Xor(DraggableElement):
     default_width, default_height, outline, contacts_data = \
         Graphics.Xor()
@@ -293,6 +294,7 @@ class Xor(DraggableElement):
 
         self.contacts[2].condition = (i0 or i1) and not (i0 and i1)
 
+
 class Not(DraggableElement):
     default_width, default_height, outline, contacts_data = \
         Graphics.Not()
@@ -301,6 +303,7 @@ class Not(DraggableElement):
         i0 = self.contacts[0].condition
 
         self.contacts[1].condition = not i0
+
 
 class Switch(DraggableElement):
     default_width, default_height, base, toggle, \
@@ -324,6 +327,7 @@ class Switch(DraggableElement):
     def update_condition(self):
         self.contacts[0].condition = self.condition
 
+
 class Lamp(DraggableElement):
     default_width, default_height, base, bulb, \
         contacts_data = Graphics.Lamp()
@@ -342,6 +346,7 @@ class Lamp(DraggableElement):
 
     def update_condition(self):
         self.condition = self.contacts[0].condition
+
 
 class Wire(LogicElement):
     condition = False   # False - inactive; True - active 
@@ -458,6 +463,7 @@ class Wire(LogicElement):
 
         for contact in self.contacts:
             contact.condition = self.condition
+
 
 class ElementsGroup(QWidget):
     def __init__(self, parent, initial_mouse_pos):

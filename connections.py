@@ -1,11 +1,8 @@
-"""
-Contains some classes implementing elements' logic. 
-"""
-
 from PyQt5.QtCore import Qt, QRect, QPoint
 from PyQt5.QtGui import QPainterPath, QPen, QBrush
 
 from palette import Palette
+
 
 class Contact:
     default_r = 10
@@ -22,10 +19,9 @@ class Contact:
                                   2*self.r, 2*self.r)
         self._wire = wire
 
-        self._type = type_   # "i" - input; "o" - output 
+        self._type = type_   # "i" - input; "o" - output
         self.links = set()
-        self.condition = False   # False - inactive; True - active 
-
+        self.condition = False   # False - inactive; True - active
 
     def draw(self, painter):
         color = Palette.element.contact[self.condition]
@@ -39,16 +35,6 @@ class Contact:
             painter.strokePath(self._terminal, pen)
         else:
             painter.fillPath(self._terminal, brush)
-
-    @classmethod
-    def draw_from_tuple(cls, painter, data):
-        # data is a tuple with Contact's type, cx, cy and wire 
-
-        r = cls.default_r
-
-        painter.drawEllipse(data[1] - r, data[2] - r, 2*r, 2*r)
-        painter.drawPath(data[3])
-
 
     def scale(self, q):
         self.r *= q
@@ -79,7 +65,6 @@ class Contact:
 
         return dx*dx + dy*dy <= (self.r + contact.r) ** 2
 
-
     def try_to_connect_to(self, contacts):
         for contact in contacts:
             if self.is_overlaid_on(contact):
@@ -108,6 +93,7 @@ class Contact:
             for link in self.links:
                 if link.element not in self.element.update_stack:
                     link.element.upd(updating_element=self.element)
+
 
 class WireContact(Contact):
     def __init__(self, element, cx, cy):
@@ -144,6 +130,7 @@ class WireContact(Contact):
         """
 
         return not self.links and len(self.segments) < 2
+
 
 class WireSegment:
     def __init__(self, wire, contact_0, contact_1):
@@ -208,6 +195,7 @@ class WireSegment:
 
         self.contacts[0].segments.remove(self)
         self.contacts[1].segments.remove(self)
+
 
 class Link:
     def __init__(self, contact):

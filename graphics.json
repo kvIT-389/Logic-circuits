@@ -1,0 +1,16 @@
+{
+    "elements":
+    [
+        { "And": {
+            "width": 380,
+            "height": 200,
+            "outline": "",
+            "contacts":
+            [
+                {
+
+                }
+            ]
+        }}
+    ]
+}
